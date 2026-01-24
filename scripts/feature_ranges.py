@@ -2,10 +2,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
+
+def here() -> str:
+    # Directory of this script
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # Load the data
-X = pd.read_csv('/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/saved_model/X.csv')
-y = pd.read_csv('/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/saved_model/y.csv')
+X = pd.read_csv(here() + '/models_and_training_data/X.csv')
+y = pd.read_csv(here() + '/models_and_training_data/y.csv')
 
 # Combine data
 data = X.copy()

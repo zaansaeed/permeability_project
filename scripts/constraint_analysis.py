@@ -6,14 +6,18 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import differential_evolution
 
+def here() -> str:
+    # Directory of this script
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # === 0) Paths (same pattern as your shap_analysis.py) ===
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-folder = os.path.join(os.getcwd())
+folder = here()
 
-MODEL_PATH = folder + "/saved_model/random_forest_model.joblib"
-X_PATH     = folder + "/saved_model/X.csv"
-Y_PATH     = folder + "/saved_model/y.csv"  # not strictly required, but available
-MONOMER_LIST_CSV = folder + "/monomer_logP.csv"
+MODEL_PATH = folder + "/models_and_training_data/random_forest_model.joblib"
+X_PATH     = folder + "/models_and_training_data/X.csv"
+Y_PATH     = folder + "/models_and_training_data/y.csv"  # not strictly required, but available
+MONOMER_LIST_CSV = folder + "/data/monomer_logP.csv"
 
 # === 1) Load model and data ===
 pipe = joblib.load(MODEL_PATH)

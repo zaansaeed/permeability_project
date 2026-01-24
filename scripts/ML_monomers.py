@@ -22,7 +22,7 @@ def load_data(file_path: str) -> pd.DataFrame:
 
 def here() -> str:
     # Directory of this script
-    return os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def save_bar_chart(series: pd.Series, title: str, ylabel: str, outfile: str):
     plt.figure()
@@ -38,8 +38,9 @@ def save_bar_chart(series: pd.Series, title: str, ylabel: str, outfile: str):
 # 0) Paths & chdir
 # -------------------------
 os.chdir(here())
-MONOMER_CSV = os.path.join("/Users/zaan/PycharmProjects/ScriptsForOMO/data/monomer_list.csv")
-PEPTIDE_CSV = os.path.join("/Users/zaan/PycharmProjects/ScriptsForOMO/data/processed_peptides.csv")
+print(here())
+MONOMER_CSV = os.path.join(here() + "/data/monomer_list.csv")
+PEPTIDE_CSV = os.path.join(here() + "/data/processed_peptides.csv")
 
 # -------------------------
 # 1) Load monomer list and build {symbol: (smiles, logP)}
@@ -61,14 +62,11 @@ if not monomers_list:
 # 2) Load peptides & compute per-position logP + stereochemistry
 # -------------------------
 peptides = load_data(PEPTIDE_CSV)
-if peptides["Sequence"].dtype == object:
-    peptides["Sequence"] = peptides["Sequence"].apply(ast.literal_eval)
+peptides["Sequence"] = peptides["Sequence"].apply(ast.literal_eval)
+
 
 LOGP_DICTIONARY = {}
 for seq, permeability, pid in zip(peptides["Sequence"], peptides["Permeability"], peptides["ID"]):
-    if not isinstance(seq, (list, tuple)) or len(seq) != 6:
-        continue
-
     logP_values = []
     chiral_tags = []  # NEW: store D/L for each position
     bad = False

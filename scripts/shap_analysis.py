@@ -7,16 +7,21 @@ import seaborn as sns
 from itertools import combinations
 import os
 
+def here() -> str:
+    # Directory of this script
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # Set style for better-looking plots
 plt.style.use('default')
 sns.set_palette("husl")
 
 # Load data
-X = pd.read_csv('/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/saved_model/X.csv')
-y = pd.read_csv('/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/saved_model/y.csv')
+# Load the data
+X = pd.read_csv(here() + '/models_and_training_data/X.csv')
+y = pd.read_csv(here() + '/models_and_training_data/y.csv')
 
 # Load your trained RF model
-rf_model = joblib.load('/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/saved_model/random_forest_model.joblib')
+rf_model = joblib.load(here() + '/models_and_training_data/random_forest_model.joblib')
 
 # Handle both dict and direct model formats
 rf_model = rf_model['model']
@@ -63,7 +68,7 @@ print(f"\nGenerating {len(logp_combinations)} unique LogP feature pairs...")
 print("=" * 70)
 
 # Create output directory if it doesn't exist
-output_dir = '/Users/zaan/PycharmProjects/ScriptsForOMO/permeability_project/statistcal_analysis/logp_dependence_plots'
+output_dir = '/Users/zaan/Desktop/permeability_project/statistical_plots'
 os.makedirs(output_dir, exist_ok=True)
 
 # Generate a plot for each combination
