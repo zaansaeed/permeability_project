@@ -68,7 +68,7 @@ print(f"\nGenerating {len(logp_combinations)} unique LogP feature pairs...")
 print("=" * 70)
 
 # Create output directory if it doesn't exist
-output_dir = '/Users/zaan/Desktop/permeability_project/statistical_plots'
+output_dir = here() + '/statistical_plots'
 os.makedirs(output_dir, exist_ok=True)
 
 # Generate a plot for each combination
