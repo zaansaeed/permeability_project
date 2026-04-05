@@ -4,7 +4,6 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from scipy.optimize import differential_evolution
 
 def here() -> str:
     # Directory of this script

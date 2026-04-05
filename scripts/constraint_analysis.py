@@ -4,7 +4,6 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from scipy.optimize import differential_evolution
 
 def here() -> str:
     # Directory of this script
@@ -40,7 +39,7 @@ print(f"[Info] Chirality features: {CHIRALITY_FEATURES}")
 
 
 def target_region(
-    target,
+    target=None,
     constraints=None,           # {"Pos_1_logP": 1.25} or {"Pos_3_logP": (0.0, 2.0)}
     eps=0.05,                   # tolerance on |y_pred - target|
     n_samples=20000,            # how many candidates to try
@@ -81,7 +80,7 @@ def target_region(
             
             if isinstance(v, (tuple, list)):
                 lo, hi = float(v[0]), float(v[1])
-                cand[col] = cand[col].clip(lo, hi)
+                cand[col] = rng.uniform(lo, hi, size=len(cand))
             else:
                 cand[col] = float(v)
 
@@ -96,15 +95,15 @@ def target_region(
         cand[c] = cand[c].round().clip(0, 1).astype(int)
 
     # Predict and filter to those near the target
-    try:
-        yhat = pipe.predict(cand[FEATURES])
-    except Exception:
-        yhat = model.predict(cand[FEATURES])
+    yhat = pipe.predict(cand[FEATURES])
     yhat = np.asarray(yhat).ravel()
+    cand["y_pred"] = yhat
 
-    mask = np.abs(yhat - target) <= eps  # only keep candidates within eps of target
-    hit = cand.loc[mask].copy()
-    hit["y_pred"] = yhat[mask]
+    if target is not None:
+        mask = np.abs(yhat - target) <= eps
+        hit = cand.loc[mask].copy()
+    else:
+        hit = cand.copy()
 
     if hit.empty:
         return None, {"msg": f"No candidates within ±{eps} of target. Try increasing eps, n_samples, or jitter_frac."}
@@ -140,7 +139,7 @@ def target_region(
         "n_candidates": int(len(cand)),
         "n_hits": int(len(hit)),
         "hit_rate": float(len(hit)/len(cand)),
-        "target": float(target),
+        "target": target,
         "eps": float(eps)
     }
 
@@ -166,17 +165,22 @@ def target_region(
 
 # === 7) Example usage ===
 if __name__ == "__main__":
-    TARGET = -5  # Target Permeability value
+    TARGET = None  # Target Permeability value, None to explore space, or a float to check a value
     
     # Use full feature names for constraints (assuming features are named like Pos_1_logP, Pos_2_logP, etc.)
     CONSTRAINTS = {
-        LOGP_FEATURES[1]: (1.0,1.2),      # Second LogP feature must be between 1.0-1.2
-        LOGP_FEATURES[2]: (0, 4.0),     # Third LogP feature can be from 
+        LOGP_FEATURES[0]: (0.43,0.45),  
+        LOGP_FEATURES[1]: (0.43,0.45),
+        LOGP_FEATURES[2]: (0.43,0.45),
+        LOGP_FEATURES[3]: (0.43,0.45),
+        LOGP_FEATURES[4]: (-.18,-.17),
+        LOGP_FEATURES[5]: (0.34, 0.35),
+        
     }
     
     y = pd.read_csv(Y_PATH).squeeze()
 
-    res, meta = target_region(TARGET, constraints=CONSTRAINTS, eps=0.06, n_samples=30000, include_shap=True)
+    res, meta = target_region(TARGET, constraints=CONSTRAINTS, eps=0.5, n_samples=10000, include_shap=True)
     
     if res is None:
         print(meta["msg"])
