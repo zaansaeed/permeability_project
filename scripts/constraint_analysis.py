@@ -171,7 +171,7 @@ if __name__ == "__main__":
     # Use full feature names for constraints (assuming features are named like Pos_1_logP, Pos_2_logP, etc.)
     CONSTRAINTS = {
         LOGP_FEATURES[1]: (1.0,1.2),      # Second LogP feature must be between 1.0-1.2
-        LOGP_FEATURES[2]: (0, 4.0),     # Third LogP feature can be from 2.0-2.3
+        LOGP_FEATURES[2]: (0, 4.0),     # Third LogP feature can be from 
     }
     
     y = pd.read_csv(Y_PATH).squeeze()
