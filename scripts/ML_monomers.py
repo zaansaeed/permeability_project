@@ -6,7 +6,7 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors
 
-from sklearn.model_selection import train_test_split, KFold, cross_val_score, RandomizedSearchCV
+from sklearn.model_selection import train_test_split, KFold, RandomizedSearchCV
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.pipeline import Pipeline
@@ -21,26 +21,14 @@ def load_data(file_path: str) -> pd.DataFrame:
     return pd.read_csv(file_path)
 
 def here() -> str:
-    # Directory of this script
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-def save_bar_chart(series: pd.Series, title: str, ylabel: str, outfile: str):
-    plt.figure()
-    series.plot(kind="bar")
-    plt.title(title)
-    plt.ylabel(ylabel)
-    plt.xlabel("")
-    plt.tight_layout()
-    plt.savefig(outfile, dpi=200)
-    plt.close()
 
 # -------------------------
 # 0) Paths & chdir
 # -------------------------
 os.chdir(here())
-print(here())
-MONOMER_CSV = os.path.join(here() + "/data/monomer_list.csv")
-PEPTIDE_CSV = os.path.join(here() + "/data/processed_peptides.csv")
+MONOMER_CSV = os.path.join(here(), "data", "monomer_list.csv")
+PEPTIDE_CSV = os.path.join(here(), "data", "processed_peptides.csv")
 
 # -------------------------
 # 1) Load monomer list and build {symbol: (smiles, logP)}
@@ -56,19 +44,18 @@ for symbol, smile in zip(monomer_df["Symbol"], monomer_df["replaced_SMILES"]):
     monomers_list[symbol] = (smile, logP)
 
 if not monomers_list:
-    raise ValueError("monomers_list is empty. Check monomer_list.csv content.")
+    raise ValueError("monomers_list is empty.")
 
 # -------------------------
-# 2) Load peptides & compute per-position logP + stereochemistry
+# 2-3) Build feature table (average duplicate sequences)
 # -------------------------
 peptides = load_data(PEPTIDE_CSV)
 peptides["Sequence"] = peptides["Sequence"].apply(ast.literal_eval)
 
-
-LOGP_DICTIONARY = {}
+rows = []
 for seq, permeability, pid in zip(peptides["Sequence"], peptides["Permeability"], peptides["ID"]):
     logP_values = []
-    chiral_tags = []  # NEW: store D/L for each position
+    chiral_tags = []
     bad = False
     for monomer in seq:
         if monomer not in monomers_list:
@@ -80,74 +67,54 @@ for seq, permeability, pid in zip(peptides["Sequence"], peptides["Permeability"]
             bad = True
             break
         logP_values.append(float(Descriptors.MolLogP(mol)))
-        
-        # NEW: Extract stereochemistry (1 if D-amino acid, 0 if L)
-        # Assuming 'd' prefix indicates D-amino acid in your monomer symbols
         is_D = 1 if monomer.startswith('d') else 0
         chiral_tags.append(is_D)
-    
     if bad:
         continue
 
-    LOGP_DICTIONARY[tuple(seq)] = [logP_values, chiral_tags, float(permeability), pid]
-
-if not LOGP_DICTIONARY:
-    raise ValueError("LOGP_DICTIONARY is empty. Check sequences/monomer symbols match your monomer list.")
-
-# -------------------------
-# 3) Build tidy feature table with stereochemistry
-# -------------------------
-rows = []
-for seq, (logP_values, chiral_tags, permeability, pid) in LOGP_DICTIONARY.items():
-    row = {"Permeability": permeability, "Sequence": "-".join(seq), "ID": pid}
-    
-    # Add LogP features
+    row = {"Permeability": float(permeability), "Sequence": "-".join(seq), "ID": pid}
     for i, v in enumerate(logP_values, start=1):
         row[f"Pos_{i}_logP"] = v
-    
-    # NEW: Add stereochemistry features
-    for i, is_D in enumerate(chiral_tags, start=1):
-        row[f"Pos_{i}_is_D"] = is_D
-    
+    for i, d in enumerate(chiral_tags, start=1):
+        row[f"Pos_{i}_is_D"] = d
     rows.append(row)
 
 df = pd.DataFrame(rows)
 
-# Update numeric columns to include both LogP and stereochemistry
+# Average permeability for duplicate sequences
+pos_cols = [c for c in df.columns if c.startswith("Pos_")]
+df = df.groupby("Sequence", as_index=False).agg({
+    "Permeability": "mean",
+    "ID": "first",
+    **{c: "first" for c in pos_cols}
+}).reset_index(drop=True)
+
 num_cols = ["Permeability"] + \
            [f"Pos_{i}_logP" for i in range(1, 7)] + \
            [f"Pos_{i}_is_D" for i in range(1, 7)]
 
 df[num_cols] = df[num_cols].apply(pd.to_numeric, errors="coerce")
 df = df.dropna(subset=num_cols).reset_index(drop=True)
-
-# ✅ Exclude invalid permeability rows (e.g., sentinel -10)
 df = df[df["Permeability"] != -10.0].reset_index(drop=True)
 feature_cols = [c for c in num_cols if c != "Permeability"]
 
-
-
 print(f"[Info] Final dataset shape: {df.shape}")
-print(f"[Info] Number of features: {len(feature_cols)}")
 print(f"[Info] Features: {feature_cols}")
-print("\nFirst few rows:")
-print(df.head())
 
 # -------------------------
-# 4) Split data
+# 4) Split data (track indices)
 # -------------------------
 X = df[feature_cols].values
 y = df["Permeability"].values
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+X_train, X_test, y_train, y_test, train_idx, test_idx = train_test_split(
+    X, y, df.index, test_size=0.2, random_state=42
 )
 
-print(f"\n[Info] Training set size: {len(X_train)}")
-print(f"[Info] Test set size: {len(X_test)}")
+print(f"[Info] Train: {len(X_train)}, Test: {len(X_test)}")
 
 # -------------------------
-# 5) Hyperparameter tuning (RandomizedSearchCV)
+# 5) Hyperparameter tuning
 # -------------------------
 rfr_pipeline = Pipeline([
     ("model", RandomForestRegressor(random_state=42, n_jobs=-1))
@@ -159,7 +126,7 @@ param_dist = {
     "model__min_samples_split": [2, 4, 6, 8, 10, 20, 40],
     "model__min_samples_leaf": [1, 2, 3, 4, 5, 8, 10],
     "model__max_features": ["sqrt", "log2", 0.3, 0.5, 0.7],
-    "model__bootstrap": [True, False],
+    "model__bootstrap": [True],
     "model__max_samples": [None, 0.6, 0.8, 1.0],
     "model__criterion": ["squared_error", "friedman_mse"]
 }
@@ -167,45 +134,61 @@ param_dist = {
 cv = KFold(n_splits=min(5, len(df)), shuffle=True, random_state=42)
 
 rand_search = RandomizedSearchCV(
-    estimator=rfr_pipeline,
-    param_distributions=param_dist,
-    n_iter=300,
-    scoring="neg_mean_squared_error",
-    cv=cv,
-    random_state=42,
-    n_jobs=-1,
-    verbose=1
+    rfr_pipeline, param_dist,
+    n_iter=300, scoring="neg_mean_squared_error",
+    cv=cv, random_state=42, n_jobs=-1, verbose=1
 )
 
 print("\n[Info] Starting hyperparameter tuning...")
 rand_search.fit(X_train, y_train)
-best_rfrr = rand_search.best_estimator_
-best_rfr = best_rfrr.named_steps["model"]
+best_pipeline = rand_search.best_estimator_
+best_rfr = best_pipeline.named_steps["model"]
 best_cv_rmse = np.sqrt(-rand_search.best_score_)
 
-print("\n=== Hyperparameter Tuning Results ===")
-print("Best params:", rand_search.best_params_)
-print(f"Best CV RMSE (neg MSE scoring): {best_cv_rmse:.3f}")
+print("\n=== Best Params ===")
+print(rand_search.best_params_)
+print(f"CV RMSE: {best_cv_rmse:.3f}")
 
 # -------------------------
-# 6) Evaluate tuned model on test set
+# 6) Evaluate & save results
 # -------------------------
+output_dir = "saved_model"
+os.makedirs(output_dir, exist_ok=True)
+
 y_pred = best_rfr.predict(X_test)
-r2 = r2_score(y_test, y_pred)
+r2   = r2_score(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
-print("\n=== Tuned Random Forest (Test Set) ===")
-print(f"R² (test):  {r2:.3f}")
-print(f"RMSE (test): {rmse:.3f}")
+print(f"\n=== Test Set ===")
+print(f"R² = {r2:.3f}, RMSE = {rmse:.3f}")
+
+# Predictions CSV
+pred_df = pd.DataFrame({
+    "ID": df.loc[test_idx, "ID"].values,
+    "Sequence": df.loc[test_idx, "Sequence"].values,
+    "True_Permeability": y_test,
+    "Predicted_Permeability": y_pred,
+    "Residual": y_test - y_pred
+})
+pred_df.to_csv(os.path.join(output_dir, "predictions.csv"), index=False)
+
+# Model metrics CSV
+results = pd.DataFrame([{
+    "R2": r2,
+    "RMSE": rmse,
+    "CV_RMSE": best_cv_rmse,
+    "n_samples": len(df),
+    "n_features": len(feature_cols),
+    **rand_search.best_params_
+}])
+results.to_csv(os.path.join(output_dir, "model_results.csv"), index=False)
 
 # -------------------------
 # 7) Feature importances
 # -------------------------
 importances = pd.Series(best_rfr.feature_importances_, index=feature_cols).sort_values(ascending=False)
-print("\nFeature importances (descending):")
-print(importances)
+importances.to_csv(os.path.join(output_dir, "feature_importances.csv"), header=["importance"])
 
-# Save feature importance plot
 plt.figure(figsize=(10, 6))
 importances.plot(kind='barh')
 plt.xlabel('Feature Importance')
@@ -213,20 +196,14 @@ plt.title('Random Forest Feature Importances')
 plt.tight_layout()
 plt.savefig('feature_importances.png', dpi=200)
 plt.close()
-print("\n[Info] Feature importance plot saved as 'feature_importances.png'")
-
-
 
 # -------------------------
-# 9) Predicted vs True chart (1:1 line)
+# 8) Predicted vs True plot
 # -------------------------
 plt.figure(figsize=(7, 7))
 plt.scatter(y_test, y_pred, alpha=0.7, edgecolors='k', s=70)
-
-# 1:1 perfect prediction line
 lims = [min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())]
 plt.plot(lims, lims, 'r--', lw=2, label='Ideal: y = x')
-
 plt.xlabel("True Permeability", fontsize=13)
 plt.ylabel("Predicted Permeability", fontsize=13)
 plt.title(f"Predicted vs. True Permeability\nR² = {r2:.3f}, RMSE = {rmse:.3f}", fontsize=14)
@@ -235,34 +212,12 @@ plt.grid(True, linestyle='--', alpha=0.5)
 plt.tight_layout()
 plt.savefig('predicted_vs_true.png', dpi=200)
 plt.close()
-print("[Info] Prediction plot saved as 'predicted_vs_true.png'")
 
 # -------------------------
-# 10) Save model and data
+# 9) Save model & data
 # -------------------------
-output_dir = "saved_model"
-os.makedirs(output_dir, exist_ok=True)
-
-# Save feature names
-feature_names_df = pd.DataFrame({'feature': feature_cols})
-feature_names_df.to_csv(os.path.join(output_dir, "feature_names.csv"), index=False)
-
-# Save full dataset with features
 df.to_csv(os.path.join(output_dir, "full_dataset_with_features.csv"), index=False)
+joblib.dump(best_pipeline, os.path.join(output_dir, "random_forest_model.joblib"))
 
-# Save train/test splits
-pd.DataFrame(X, columns=feature_cols).to_csv(os.path.join(output_dir, "X.csv"), index=False)
-pd.DataFrame(y, columns=["Permeability"]).to_csv(os.path.join(output_dir, "y.csv"), index=False)
-
-# Save trained Random Forest model
-model_path = os.path.join(output_dir, "random_forest_model.joblib")
-joblib.dump(best_rfrr, model_path)
-
-print(f"\n=== Saved Outputs ===")
-print(f"X saved to: {os.path.join(output_dir, 'X.csv')}")
-print(f"y saved to: {os.path.join(output_dir, 'y.csv')}")
-print(f"Feature names saved to: {os.path.join(output_dir, 'feature_names.csv')}")
-print(f"Full dataset saved to: {os.path.join(output_dir, 'full_dataset_with_features.csv')}")
-print(f"Model saved to: {model_path}")
-
-print("\n[Info] Done!")
+print(f"\n[Info] All outputs saved to {output_dir}/")
+print("[Info] Done!")

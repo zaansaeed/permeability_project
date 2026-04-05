@@ -87,18 +87,15 @@ print(f"[Info] Loaded {len(monomers_list)} monomers, each with {len(DESC_NAMES)}
 peptides = load_data(PEPTIDE_CSV)
 peptides["Sequence"] = peptides["Sequence"].apply(ast.literal_eval)
 
+
 # -------------------------
 # 3) Build feature table
-#    For each peptide: per-position descriptors + is_D flag
 # -------------------------
-rows = []
+FEATURE_DICT = {}
 for _, row in peptides.iterrows():
     seq          = row["Sequence"]
     permeability = float(row["Permeability"])
     pid          = row["ID"]
-
-    if permeability == -10.0:
-        continue
 
     entry = {"Permeability": permeability, "Sequence": "-".join(seq), "ID": pid}
     bad   = False
@@ -114,20 +111,19 @@ for _, row in peptides.iterrows():
 
     if bad:
         continue
-    rows.append(entry)
+    FEATURE_DICT[tuple(seq)] = entry
 
-df = pd.DataFrame(rows)
+df = pd.DataFrame(list(FEATURE_DICT.values()))
 
-# Derive feature column list (everything except metadata)
+# Filter invalid permeability after building
 meta_cols    = ["Permeability", "Sequence", "ID"]
 feature_cols = [c for c in df.columns if c not in meta_cols]
 
-# Coerce & drop NaN rows
 df[feature_cols + ["Permeability"]] = df[feature_cols + ["Permeability"]].apply(
     pd.to_numeric, errors="coerce"
 )
 df = df.dropna(subset=feature_cols + ["Permeability"]).reset_index(drop=True)
-
+df = df[df["Permeability"] != -10.0].reset_index(drop=True)
 print(f"[Info] Dataset shape:     {df.shape}")
 print(f"[Info] Number of features: {len(feature_cols)}")
 print(f"[Info] Features (first 10): {feature_cols[:10]}")
@@ -156,7 +152,7 @@ param_dist = {
     "model__min_samples_split": [2, 4, 6, 8, 10, 20, 40],
     "model__min_samples_leaf":  [1, 2, 3, 4, 5, 8, 10],
     "model__max_features":      ["sqrt", "log2", 0.3, 0.5, 0.7],
-    "model__bootstrap":         [True, False],
+    "model__bootstrap":         [True],
     "model__max_samples":       [None, 0.6, 0.8, 1.0],
     "model__criterion":         ["squared_error", "friedman_mse"],
 }
@@ -301,13 +297,29 @@ print("[Info] Saved: predicted_vs_true.png")
 # -------------------------
 # 9) Save model & data
 # -------------------------
-output_dir = "saved_model"
+# -------------------------
+# 9) Save model, feature importances & data
+# -------------------------
+output_dir = "All_features"
 os.makedirs(output_dir, exist_ok=True)
 
+# Feature importances CSV (sorted descending)
+importances.to_csv(os.path.join(output_dir, "feature_importances.csv"),
+                   header=["importance"])
+
+# Model
+joblib.dump(best_pipeline, os.path.join(output_dir, "random_forest_model.joblib"))
+
+# Supporting files
 pd.DataFrame({'feature': feature_cols}).to_csv(
     os.path.join(output_dir, "feature_names.csv"), index=False)
 df.to_csv(os.path.join(output_dir, "full_dataset_with_features.csv"), index=False)
-joblib.dump(best_pipeline, os.path.join(output_dir, "random_forest_model.joblib"))
+# Per-position summed importances
+pos_imp_series.to_csv(os.path.join(output_dir, "position_importances.csv"),
+                      header=["importance"])
 
-print(f"\n[Info] Model saved to {output_dir}/random_forest_model.joblib")
+# Per-descriptor-type summed importances
+desc_imp_series.to_csv(os.path.join(output_dir, "descriptor_importances.csv"),
+                       header=["importance"])
+print(f"\n[Info] Saved feature importances & model to {output_dir}/")
 print("[Info] Done!")
