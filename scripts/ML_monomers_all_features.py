@@ -15,6 +15,9 @@ import joblib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+
+output_dir = "All_features"
+
 # -------------------------
 # Utils
 # -------------------------
@@ -59,7 +62,7 @@ def compute_monomer_descriptors(mol) -> dict:
 # 0) Paths & chdir
 # -------------------------
 os.chdir(here())
-MONOMER_CSV = os.path.join(here(), "data", "monomer_list.csv")
+MONOMER_CSV = os.path.join(here(), "data", "monomer_list_updated.csv")
 PEPTIDE_CSV = os.path.join(here(), "data", "processed_peptides.csv")
 
 # -------------------------
@@ -67,14 +70,17 @@ PEPTIDE_CSV = os.path.join(here(), "data", "processed_peptides.csv")
 # -------------------------
 monomer_df = load_data(MONOMER_CSV)
 
-monomers_list = {}  # symbol -> {"mol": mol, "descs": {name: val}, "is_D": int}
-for symbol, smile in zip(monomer_df["Symbol"], monomer_df["replaced_SMILES"]):
+monomers_list = {}  # symbol -> {"mol": mol, "descs": {name: val}}
+for _, row in monomer_df.iterrows():
+    symbol = row["Symbol"]
+    smile  = row["replaced_SMILES"]
     mol = Chem.MolFromSmiles(smile)
     if mol is None:
         continue
     descs = compute_monomer_descriptors(mol)
-    is_D  = 1 if symbol.startswith('d') else 0
-    monomers_list[symbol] = {"mol": mol, "descs": descs, "is_D": is_D}
+    descs["isD"]    = 1 if symbol.startswith('d') else 0
+    descs["isNSub"] = int(row["is_NSub"])
+    monomers_list[symbol] = {"mol": mol, "descs": descs}
 
 if not monomers_list:
     raise ValueError("monomers_list is empty. Check monomer_list.csv content.")
@@ -107,7 +113,6 @@ for _, row in peptides.iterrows():
         info = monomers_list[monomer]
         for desc_name, val in info["descs"].items():
             entry[f"Pos{pos}_{desc_name}"] = val
-        entry[f"Pos{pos}_isD"] = info["is_D"]
 
     if bad:
         continue
@@ -134,8 +139,8 @@ print(f"[Info] Features (first 10): {feature_cols[:10]}")
 X = df[feature_cols].values
 y = df["Permeability"].values
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42
+X_train, X_test, y_train, y_test, idx_train, idx_test = train_test_split(
+    X, y, np.arange(len(y)), test_size=0.2, random_state=42
 )
 print(f"\n[Info] Train: {len(X_train)}, Test: {len(X_test)}")
 
@@ -143,7 +148,7 @@ print(f"\n[Info] Train: {len(X_train)}, Test: {len(X_test)}")
 # 5) Hyperparameter tuning
 # -------------------------
 rfr_pipeline = Pipeline([
-    ("model", RandomForestRegressor(random_state=42, n_jobs=-1))
+    ("model", RandomForestRegressor(random_state=42, n_jobs=1))
 ])
 
 param_dist = {
@@ -162,7 +167,7 @@ cv = KFold(n_splits=min(5, len(df)), shuffle=True, random_state=42)
 rand_search = RandomizedSearchCV(
     rfr_pipeline, param_dist,
     n_iter=300, scoring="neg_mean_squared_error",
-    cv=cv, random_state=42, n_jobs=-1, verbose=1
+    cv=cv, random_state=42, n_jobs=1, verbose=1
 )
 
 print("\n[Info] Starting hyperparameter tuning (300 iterations)...")
@@ -172,10 +177,25 @@ best_pipeline = rand_search.best_estimator_
 best_rf       = best_pipeline.named_steps["model"]
 best_cv_rmse  = np.sqrt(-rand_search.best_score_)
 
+
+# CV stats for best hyperparameter config
+cv_results = rand_search.cv_results_
+best_idx = rand_search.best_index_
+
+mean_cv_rmse = np.sqrt(-cv_results["mean_test_score"][best_idx])
+std_cv_rmse = np.sqrt(cv_results["std_test_score"][best_idx])
+
+# R² requires a separate cross_val_score call
+from sklearn.model_selection import cross_val_score
+cv_r2_scores = cross_val_score(best_pipeline, X_train, y_train, cv=cv, scoring="r2")
+mean_cv_r2 = cv_r2_scores.mean()
+std_cv_r2 = cv_r2_scores.std()
+
 print("\n=== Hyperparameter Tuning Results ===")
 print("Best params:", rand_search.best_params_)
-print(f"Best CV RMSE: {best_cv_rmse:.3f}")
-
+print(f"Best CV RMSE: {best_cv_rmse:.4f}")
+print(f"CV RMSE: {mean_cv_rmse:.4f} ± {std_cv_rmse:.5f}")
+print(f"CV R²:   {mean_cv_r2:.4f} ± {std_cv_r2:.4f}")
 # -------------------------
 # 6) Test set evaluation
 # -------------------------
@@ -186,6 +206,19 @@ rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 print("\n=== Test Set Performance ===")
 print(f"R²   = {r2:.3f}")
 print(f"RMSE = {rmse:.3f}")
+
+results = pd.DataFrame([{
+    "R2": r2,
+    "RMSE": rmse,
+    "CV_RMSE_mean": mean_cv_rmse,
+    "CV_RMSE_std": std_cv_rmse,
+    "CV_R2_mean": mean_cv_r2,
+    "CV_R2_std": std_cv_r2,
+    "n_samples": len(df),
+    "n_features": len(feature_cols),
+    **rand_search.best_params_
+}])
+results.to_csv(os.path.join(output_dir, "model_results.csv"), index=False)
 
 # -------------------------
 # 7) Feature importances — grouped by position
@@ -235,7 +268,7 @@ plt.close()
 print("[Info] Saved: feature_importances_by_position.png")
 
 # ── 7c) Descriptor-type importance (summed across all positions) ──
-all_desc_types = DESC_NAMES + ["isD"]
+all_desc_types = DESC_NAMES + ["isD", "isNSub"]
 desc_importance = {}
 for desc in all_desc_types:
     desc_cols = [c for c in feature_cols if c.endswith(f"_{desc}")]
@@ -295,9 +328,6 @@ plt.close()
 print("[Info] Saved: predicted_vs_true.png")
 
 # -------------------------
-# 9) Save model & data
-# -------------------------
-# -------------------------
 # 9) Save model, feature importances & data
 # -------------------------
 output_dir = "All_features"
@@ -314,6 +344,7 @@ joblib.dump(best_pipeline, os.path.join(output_dir, "random_forest_model.joblib"
 pd.DataFrame({'feature': feature_cols}).to_csv(
     os.path.join(output_dir, "feature_names.csv"), index=False)
 df.to_csv(os.path.join(output_dir, "full_dataset_with_features.csv"), index=False)
+
 # Per-position summed importances
 pos_imp_series.to_csv(os.path.join(output_dir, "position_importances.csv"),
                       header=["importance"])
@@ -321,5 +352,20 @@ pos_imp_series.to_csv(os.path.join(output_dir, "position_importances.csv"),
 # Per-descriptor-type summed importances
 desc_imp_series.to_csv(os.path.join(output_dir, "descriptor_importances.csv"),
                        header=["importance"])
+
+# Test set predictions, residuals, sequences
+test_sequences = df.loc[idx_test, "Sequence"].values
+residuals = y_test - y_pred
+
+pred_df = pd.DataFrame({
+    "ID":           df.loc[idx_test, "ID"].values,
+    "Sequence":     test_sequences,
+    "y_true":       y_test,
+    "y_pred":       y_pred,
+    "residual":     residuals,
+})
+pred_df.to_csv(os.path.join(output_dir, "test_predictions.csv"), index=False)
+print(f"[Info] Saved test predictions & residuals to {output_dir}/test_predictions.csv")
+
 print(f"\n[Info] Saved feature importances & model to {output_dir}/")
 print("[Info] Done!")

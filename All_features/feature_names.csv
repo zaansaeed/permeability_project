@@ -12,6 +12,7 @@ Pos1_MinPartCharge
 Pos1_Chi0
 Pos1_Chi1
 Pos1_isD
+Pos1_isNSub
 Pos2_MolWt
 Pos2_LogP
 Pos2_TPSA
@@ -25,6 +26,7 @@ Pos2_MinPartCharge
 Pos2_Chi0
 Pos2_Chi1
 Pos2_isD
+Pos2_isNSub
 Pos3_MolWt
 Pos3_LogP
 Pos3_TPSA
@@ -38,6 +40,7 @@ Pos3_MinPartCharge
 Pos3_Chi0
 Pos3_Chi1
 Pos3_isD
+Pos3_isNSub
 Pos4_MolWt
 Pos4_LogP
 Pos4_TPSA
@@ -51,6 +54,7 @@ Pos4_MinPartCharge
 Pos4_Chi0
 Pos4_Chi1
 Pos4_isD
+Pos4_isNSub
 Pos5_MolWt
 Pos5_LogP
 Pos5_TPSA
@@ -64,6 +68,7 @@ Pos5_MinPartCharge
 Pos5_Chi0
 Pos5_Chi1
 Pos5_isD
+Pos5_isNSub
 Pos6_MolWt
 Pos6_LogP
 Pos6_TPSA
@@ -77,3 +82,4 @@ Pos6_MinPartCharge
 Pos6_Chi0
 Pos6_Chi1
 Pos6_isD
+Pos6_isNSub

@@ -117,7 +117,7 @@ print(f"[Info] Train: {len(X_train)}, Test: {len(X_test)}")
 # 5) Hyperparameter tuning
 # -------------------------
 rfr_pipeline = Pipeline([
-    ("model", RandomForestRegressor(random_state=42, n_jobs=-1))
+    ("model", RandomForestRegressor(random_state=42, n_jobs=1))
 ])
 
 param_dist = {
@@ -136,7 +136,7 @@ cv = KFold(n_splits=min(5, len(df)), shuffle=True, random_state=42)
 rand_search = RandomizedSearchCV(
     rfr_pipeline, param_dist,
     n_iter=300, scoring="neg_mean_squared_error",
-    cv=cv, random_state=42, n_jobs=-1, verbose=1
+    cv=cv, random_state=42, n_jobs=1, verbose=1
 )
 
 print("\n[Info] Starting hyperparameter tuning...")
@@ -145,10 +145,24 @@ best_pipeline = rand_search.best_estimator_
 best_rfr = best_pipeline.named_steps["model"]
 best_cv_rmse = np.sqrt(-rand_search.best_score_)
 
+# CV stats for best hyperparameter config
+cv_results = rand_search.cv_results_
+best_idx = rand_search.best_index_
+
+mean_cv_rmse = np.sqrt(-cv_results["mean_test_score"][best_idx])
+std_cv_rmse = np.sqrt(cv_results["std_test_score"][best_idx])
+
+# R² requires a separate cross_val_score call
+from sklearn.model_selection import cross_val_score
+cv_r2_scores = cross_val_score(best_pipeline, X_train, y_train, cv=cv, scoring="r2")
+mean_cv_r2 = cv_r2_scores.mean()
+std_cv_r2 = cv_r2_scores.std()
+
 print("\n=== Best Params ===")
 print(rand_search.best_params_)
-print(f"CV RMSE: {best_cv_rmse:.3f}")
-
+print(f"CV RMSE: {best_cv_rmse:.4f}")
+print(f"CV RMSE: {mean_cv_rmse:.4f} ± {std_cv_rmse:.5f}")
+print(f"CV R²:   {mean_cv_r2:.4f} ± {std_cv_r2:.4f}")
 # -------------------------
 # 6) Evaluate & save results
 # -------------------------
@@ -160,7 +174,7 @@ r2   = r2_score(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
 print(f"\n=== Test Set ===")
-print(f"R² = {r2:.3f}, RMSE = {rmse:.3f}")
+print(f"R² = {r2:.4f}, RMSE = {rmse:.4f}")
 
 # Predictions CSV
 pred_df = pd.DataFrame({
@@ -176,7 +190,10 @@ pred_df.to_csv(os.path.join(output_dir, "predictions.csv"), index=False)
 results = pd.DataFrame([{
     "R2": r2,
     "RMSE": rmse,
-    "CV_RMSE": best_cv_rmse,
+    "CV_RMSE_mean": mean_cv_rmse,
+    "CV_RMSE_std": std_cv_rmse,
+    "CV_R2_mean": mean_cv_r2,
+    "CV_R2_std": std_cv_r2,
     "n_samples": len(df),
     "n_features": len(feature_cols),
     **rand_search.best_params_
