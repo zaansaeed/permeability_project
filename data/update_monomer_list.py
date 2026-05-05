@@ -1,4 +1,5 @@
 import os
+import re
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors
@@ -7,28 +8,34 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 
 df = pd.read_csv(os.path.join(DATA_DIR, "monomer_list.csv"))
 
-# is_D: check for "D-" in IUPAC_Condensed
-# If IUPAC_Condensed is missing or "N.D", fall back to Symbol starting with "d"
-def check_is_D(row):
-    iupac = str(row.get("IUPAC_Condensed", ""))
-    if iupac in ("", "nan", "N.D"):
-        return 1 if str(row["Symbol"]).startswith("d") else 0
-    return 1 if "D-" in iupac else 0
+# Filter to backbone monomers only
+df = df[df["Monomer_Type"] == "Backbone"].reset_index(drop=True)
 
-df["is_D"] = df.apply(check_is_D, axis=1)
+# Chirality: 1 = D, -1 = L, 0 = neither
+d_symbol_pattern = re.compile(r"d[A-Z]")
 
-# is_NSub: anything that does NOT match canonical alpha-amino acid backbone
-# [NX3H2]-[CX4]-[CX3](=O) matches free NH2 on alpha-carbon
-# If it doesn't match -> N is substituted (methylated, proline ring, etc.)
-canonical_smarts = Chem.MolFromSmarts("[NX3H2]-[CX4]-[CX3](=O)")
+def check_chirality(row):
+    iupac = str(row.get("IUPAC_Name", ""))
+    symbol = str(row.get("Symbol", ""))
+    is_D = ("2R" in iupac) or bool(d_symbol_pattern.search(symbol))
+    is_L = "2S" in iupac
+    if is_L:
+        return -1
+    if is_D:
+        return 1
+    return 0
 
-def check_nsub(smiles):
-    mol = Chem.MolFromSmiles(str(smiles))
-    if mol is None:
-        return None
-    return 0 if mol.HasSubstructMatch(canonical_smarts) else 1
+df["chirality"] = df.apply(check_chirality, axis=1)
 
-df["is_NSub"] = df["replaced_SMILES"].apply(check_nsub)
+# is_NSub: 0 if "2-amino" in IUPAC_Name OR "O->S" in Symbol, else 1
+def check_nsub(row):
+    iupac = str(row.get("IUPAC_Name", ""))
+    symbol = str(row.get("Symbol", ""))
+    if "2-amino" in iupac or "O->S" in symbol:
+        return 0
+    return 1
+
+df["is_NSub"] = df.apply(check_nsub, axis=1)
 
 def compute_logP(smiles):
     mol = Chem.MolFromSmiles(str(smiles))
@@ -42,7 +49,9 @@ out_path = os.path.join(DATA_DIR, "monomer_list_updated.csv")
 df.to_csv(out_path, index=False)
 
 print(f"Saved to {out_path}")
-print(f"Total: {len(df)}")
-print(f"D-amino acids:  {df['is_D'].sum()}")
-print(f"N-substituted:  {df['is_NSub'].sum()} (of {df['is_NSub'].notna().sum()} valid)")
-print(f"logP computed:  {df['logP'].notna().sum()}, missing: {df['logP'].isna().sum()}")
+print(f"Total backbone monomers: {len(df)}")
+print(f"D-amino acids (1):       {(df['chirality'] == 1).sum()}")
+print(f"L-amino acids (-1):      {(df['chirality'] == -1).sum()}")
+print(f"Neither (0):             {(df['chirality'] == 0).sum()}")
+print(f"N-substituted:           {df['is_NSub'].sum()}")
+print(f"logP computed:           {df['logP'].notna().sum()}, missing: {df['logP'].isna().sum()}")

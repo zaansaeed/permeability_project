@@ -1,2 +1,2 @@
 R2,RMSE,CV_RMSE_mean,CV_RMSE_std,CV_R2_mean,CV_R2_std,n_samples,n_features,model__n_estimators,model__min_samples_split,model__min_samples_leaf,model__max_samples,model__max_features,model__max_depth,model__criterion,model__bootstrap
-0.7857598697291657,0.3541186064158919,0.40101990371085,0.09880477829711523,0.7655193171434267,0.01168975966711282,2054,84,500,2,1,,0.7,22,squared_error,True
+0.78495903811693,0.3547798384020899,0.40170858983325336,0.09666693417098977,0.7646593458407726,0.011999689478012637,2054,84,500,2,1,,0.7,22,squared_error,True

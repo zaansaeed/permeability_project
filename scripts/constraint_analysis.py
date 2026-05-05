@@ -4,6 +4,11 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+import ast
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill
+ 
+
 
 def here() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -16,6 +21,19 @@ MODEL_PATH = folder + "/saved_model/random_forest_model.joblib"
 X_PATH     = folder + "/saved_model/X.csv"
 Y_PATH     = folder + "/saved_model/y.csv"
 MONOMER_LIST_CSV = folder + "/data/monomer_list_updated.csv"
+
+
+PEPTIDE_CSV = folder + "/data/processed_peptides.csv"
+ 
+# Build set of monomers actually used in training data
+_pep_df = pd.read_csv(PEPTIDE_CSV)
+TRAINING_MONOMERS = set()
+for seq in _pep_df["Sequence"]:
+    TRAINING_MONOMERS.update(ast.literal_eval(seq))
+print(f"[Info] Training monomers: {len(TRAINING_MONOMERS)} unique symbols")
+ 
+ 
+
 
 # === 1) Load model and data ===
 pipe = joblib.load(MODEL_PATH)
@@ -138,43 +156,96 @@ def target_region(
     print(f"[Saved] LogP summary → {summary_path}")
 
     # === Save 3: Possible monomers per position ===
-    # Filter by logP IQR, and additionally by is_D / is_NMethylated
-    # if those are constrained for that position.
+    # Compute proportion of 1 for each binary feature across hits
+    binary_proportions = {}
+    for col in BINARY_FEATURES:
+        binary_proportions[col] = float(hit[col].mean())
+
+    
     monomer_lists = {}
     for pos in range(1, N_POS + 1):
         logp_col = f"Pos_{pos}_logP"
         q25, q75 = hit[logp_col].quantile(0.25), hit[logp_col].quantile(0.75)
         mask = (monomers["logP"] >= q25) & (monomers["logP"] <= q75)
-
-        # If is_D is constrained for this position, filter monomers accordingly
+        mask &= (monomers["Monomer_Type"] != "Terminal")  # exclude terminals
+ 
+        # is_D filter
         d_col = f"Pos_{pos}_is_D"
         if constraints and d_col in constraints:
-            d_val = int(constraints[d_col])
-            mask &= (monomers["is_D"] == d_val)
-
-        # If is_NSub is constrained for this position, filter monomers accordingly
+            mask &= (monomers["is_D"] == int(constraints[d_col]))
+        else:
+            prop_d = binary_proportions[d_col]
+            if prop_d < 0.3:
+                mask &= (monomers["is_D"] == 0)
+            elif prop_d > 0.7:
+                mask &= (monomers["is_D"] == 1)
+ 
+        # is_NSub filter
         nm_col = f"Pos_{pos}_is_NSub"
         if constraints and nm_col in constraints:
-            nm_val = int(constraints[nm_col])
-            mask &= (monomers["is_NSub"] == nm_val)
-
+            mask &= (monomers["is_NSub"] == int(constraints[nm_col]))
+        else:
+            prop_nm = binary_proportions[nm_col]
+            if prop_nm < 0.3:
+                mask &= (monomers["is_NSub"] == 0)
+            elif prop_nm > 0.7:
+                mask &= (monomers["is_NSub"] == 1)
+ 
         filtered = monomers.loc[mask, ["Symbol", "IUPAC_Name"]].dropna(subset=["Symbol"]).drop_duplicates(subset=["Symbol"])
         monomer_lists[logp_col] = {
             "Symbol": filtered["Symbol"].tolist(),
             "IUPAC":  filtered["IUPAC_Name"].tolist(),
         }
-
+ 
+    # --- Write XLSX with green highlighting for training-set monomers ---
+    green_fill = PatternFill(start_color="92D050", end_color="92D050", fill_type="solid")
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Possible Monomers"
+ 
+    # Header row
+    headers = []
+    for pos in range(1, N_POS + 1):
+        pos_label = f"Pos_{pos}"
+        d_col  = f"Pos_{pos}_is_D"
+        nm_col = f"Pos_{pos}_is_NSub"
+        headers.extend([f"{pos_label}_Symbol", f"{pos_label}_IUPAC"])
+    for col_idx, h in enumerate(headers, start=1):
+        ws.cell(row=1, column=col_idx, value=h)
+ 
+    # Row 2-3: proportion info
+    for pos in range(1, N_POS + 1):
+        col_offset = (pos - 1) * 2
+        d_col  = f"Pos_{pos}_is_D"
+        nm_col = f"Pos_{pos}_is_NSub"
+        ws.cell(row=2, column=col_offset + 1, value=f"is_D prop={binary_proportions[d_col]:.3f}")
+        ws.cell(row=3, column=col_offset + 1, value=f"is_NSub prop={binary_proportions[nm_col]:.3f}")
+ 
+    # Data rows (starting row 4)
     max_len = max(len(v["Symbol"]) for v in monomer_lists.values()) if monomer_lists else 0
-    cols = {}
-    for logp_col in LOGP_FEATURES:
-        pos_label = logp_col.replace("_logP", "")
-        syms  = monomer_lists[logp_col]["Symbol"]
-        iupac = monomer_lists[logp_col]["IUPAC"]
-        cols[f"{pos_label}_Symbol"] = syms + [None] * (max_len - len(syms))
-        cols[f"{pos_label}_IUPAC"]  = iupac + [None] * (max_len - len(iupac))
-    monomers_df = pd.DataFrame(cols)
-    monomers_path = os.path.join(out_dir, "possible_monomers_per_position.csv")
-    monomers_df.to_csv(monomers_path, index=False)
+    for row_idx in range(max_len):
+        for pos in range(1, N_POS + 1):
+            logp_col = f"Pos_{pos}_logP"
+            syms  = monomer_lists[logp_col]["Symbol"]
+            iupac = monomer_lists[logp_col]["IUPAC"]
+            col_offset = (pos - 1) * 2
+ 
+            if row_idx < len(syms):
+                sym_cell = ws.cell(row=row_idx + 4, column=col_offset + 1, value=syms[row_idx])
+                iupac_cell = ws.cell(row=row_idx + 4, column=col_offset + 2,
+                                     value=iupac[row_idx] if row_idx < len(iupac) else None)
+                # Green if monomer is in training data
+                if syms[row_idx] in TRAINING_MONOMERS:
+                    sym_cell.fill = green_fill
+                    iupac_cell.fill = green_fill
+ 
+    # Auto-width columns
+    for col in ws.columns:
+        max_width = max((len(str(cell.value or "")) for cell in col), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_width + 2, 40)
+ 
+    monomers_path = os.path.join(out_dir, "possible_monomers_per_position.xlsx")
+    wb.save(monomers_path)
     print(f"[Saved] Possible monomers → {monomers_path}")
 
     # Console preview
@@ -193,7 +264,8 @@ def target_region(
         "hit_rate":     float(len(hit) / len(cand)),
         "target":       target,
         "eps":          float(eps),
-        "output_dir":   out_dir
+        "output_dir":   out_dir,
+        "binary_proportions": binary_proportions,
     }
 
     shap_summary = None
@@ -261,16 +333,16 @@ def generate_boxplot(hits_csv, out_dir):
 # === Example usage ===
 if __name__ == "__main__":
     TARGET = -5
-    CASE_STUDY = "CaseStudy1"
+    CASE_STUDY = "CaseStudy5"
 
     CONSTRAINTS = {
-        LOGP_FEATURES[1]: -0.177,
-        LOGP_FEATURES[4]: -0.177,
-        NSUB_FEATURES[1]: 1,
-        NSUB_FEATURES[4]: 1,
-        CHIRALITY_FEATURES[1]: 0,
-        CHIRALITY_FEATURES[4]: 0
-
+        CHIRALITY_FEATURES[0]: 0,
+        LOGP_FEATURES[5]: [-1.85, 0.1],
+        CHIRALITY_FEATURES[1]: 1,
+        CHIRALITY_FEATURES[2]: 0,
+        CHIRALITY_FEATURES[3]: 1,
+        CHIRALITY_FEATURES[4]: 0,
+        CHIRALITY_FEATURES[5]: 1,
 
     }
 

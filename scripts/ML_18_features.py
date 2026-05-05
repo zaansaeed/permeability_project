@@ -31,8 +31,7 @@ OUTPUT_DIR = "saved_model"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # -------------------------
-# 1) Load monomer list: {symbol: (logP, is_D, is_NSub)}
-#    All three come from monomer_list_updated.csv
+# 1) Load monomer list: {symbol: (logP, chirality, is_NSub)}
 # -------------------------
 monomer_df = load_data(MONOMER_CSV)
 
@@ -40,12 +39,11 @@ monomers_list = {}
 for _, row in monomer_df.iterrows():
     symbol = row["Symbol"]
     logP = row.get("logP")
-    is_D = row.get("is_D")
+    chirality = row.get("chirality")
     is_NSub = row.get("is_NSub")
-    if pd.isna(logP) or pd.isna(is_D) or pd.isna(is_NSub):
+    if pd.isna(logP) or pd.isna(chirality) or pd.isna(is_NSub):
         continue
-    monomers_list[symbol] = (float(logP), int(is_D), int(is_NSub))
-
+    monomers_list[symbol] = (float(logP), int(chirality), int(is_NSub))
 if not monomers_list:
     raise ValueError("monomers_list is empty.")
 
@@ -65,9 +63,9 @@ for seq, permeability, pid in zip(peptides["Sequence"], peptides["Permeability"]
         if monomer not in monomers_list:
             bad = True
             break
-        logP, is_D, is_NSub = monomers_list[monomer]
+        logP, chirality, is_NSub = monomers_list[monomer]
         logP_values.append(logP)
-        chiral_tags.append(is_D)
+        chiral_tags.append(chirality)
         nsub_tags.append(is_NSub)
     if bad:
         continue
@@ -75,8 +73,8 @@ for seq, permeability, pid in zip(peptides["Sequence"], peptides["Permeability"]
     row = {"Permeability": float(permeability), "Sequence": "-".join(seq), "ID": pid}
     for i, v in enumerate(logP_values, start=1):
         row[f"Pos_{i}_logP"] = v
-    for i, d in enumerate(chiral_tags, start=1):
-        row[f"Pos_{i}_is_D"] = d
+    for i, c in enumerate(chiral_tags, start=1):
+        row[f"Pos_{i}_chirality"] = c
     for i, m in enumerate(nsub_tags, start=1):
         row[f"Pos_{i}_is_NSub"] = m
     rows.append(row)
@@ -94,7 +92,7 @@ df = df.groupby("Sequence", as_index=False).agg({
 num_cols = (
     ["Permeability"]
     + [f"Pos_{i}_logP" for i in range(1, 7)]
-    + [f"Pos_{i}_is_D" for i in range(1, 7)]
+    + [f"Pos_{i}_chirality" for i in range(1, 7)]
     + [f"Pos_{i}_is_NSub" for i in range(1, 7)]
 )
 

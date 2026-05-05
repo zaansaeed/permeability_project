@@ -1,0 +1,46 @@
+Pos_1_Symbol,Pos_1_IUPAC,Pos_2_Symbol,Pos_2_IUPAC,Pos_3_Symbol,Pos_3_IUPAC,Pos_4_Symbol,Pos_4_IUPAC,Pos_5_Symbol,Pos_5_IUPAC,Pos_6_Symbol,Pos_6_IUPAC
+is_D prop=0.000,,is_D prop=1.000,,is_D prop=0.000,,is_D prop=1.000,,is_D prop=0.000,,is_D prop=1.000,
+is_NSub prop=0.775,,is_NSub prop=0.555,,is_NSub prop=0.528,,is_NSub prop=0.987,,is_NSub prop=0.675,,is_NSub prop=0.393,
+meA,(2S)-2-(methylamino)propanoic acid,dF,(2R)-2-amino-3-phenylpropanoic acid,F,(2S)-2-amino-3-phenylpropanoic acid,Me_dAbu,(2R)-2-(methylamino)butanoic acid,F,(2S)-2-amino-3-phenylpropanoic acid,dA,(2R)-2-aminopropanoic acid
+Me_Abu,(2S)-2-(methylamino)butanoic acid,dPhe(4-F),(2R)-2-amino-3-(4-fluorophenyl)propanoic acid,Phe(4-NO2),(2S)-2-amino-3-(4-nitrophenyl)propanoic acid,d(N->O)Gly(allyl),(2R)-2-hydroxypent-4-enoic acid,isoamyl_Gly,2-(3-methylbutylamino)acetic acid,dAsp(pyrrol-1-yl),(2R)-2-amino-4-oxo-4-pyrrolidin-1-ylbutanoic acid
+5-Ava,5-aminopentanoic acid,Me_dI,"(2R,3R)-3-methyl-2-(methylamino)pentanoic acid",Bn(4-OH)_Gly,2-[(4-hydroxyphenyl)methylamino]acetic acid,Me_dK,(2R)-6-amino-2-(methylamino)hexanoic acid,meI,"(2S,3S)-3-methyl-2-(methylamino)pentanoic acid",dGlu(OMe),(2R)-2-amino-5-methoxy-5-oxopentanoic acid
+Me_Bal,3-(methylamino)propanoic acid,Me_dL,(2R)-4-methyl-2-(methylamino)pentanoic acid,Bu_Gly,2-(butylamino)acetic acid,dP,(2R)-pyrrolidine-2-carboxylic acid,meL,(2S)-4-methyl-2-(methylamino)pentanoic acid,dHyp,"(2R,4S)-4-hydroxypyrrolidine-2-carboxylic acid"
+Et_Gly,2-(ethylamino)acetic acid,Me_dY,(2R)-3-(4-hydroxyphenyl)-2-(methylamino)propanoic acid,I,"(2S,3S)-2-amino-3-methylpentanoic acid",,,Ser(Bn),(2S)-2-amino-3-phenylmethoxypropanoic acid,dK,"(2R)-2,6-diaminohexanoic acid"
+EtOEt_Gly,2-(2-ethoxyethylamino)acetic acid,medl-,(2R)-4-methyl-2-(methylamino)pentanoic acid,(N->O)xiIle,(2S)-2-hydroxy-3-methylpentanoic acid,,,Me_Ser(isoamyl),(2S)-2-(methylamino)-3-(3-methylbutoxy)propanoic acid,dLeu(3R-OH),"(2R,3R)-2-amino-3-hydroxy-4-methylpentanoic acid"
+Pr_Gly,2-(propylamino)acetic acid,dPro(O->S),N.D,Lys(iPr),(2S)-2-amino-6-(propan-2-ylamino)hexanoic acid,,,Me_Bmt(E),"(E,2S,3R,4R)-3-hydroxy-4-methyl-2-(methylamino)oct-6-enoic acid",dAsn(Me2),(2R)-2-amino-4-(dimethylamino)-4-oxobutanoic acid
+GABA,4-aminobutanoic acid,,,L,(2S)-2-amino-4-methylpentanoic acid,,,Tyr(Me),(2S)-2-amino-3-(4-methoxyphenyl)propanoic acid,dGln(Me2),(2R)-2-amino-5-(dimethylamino)-5-oxopentanoic acid
+Hyp(Et),"(2S,4R)-4-ethoxypyrrolidine-2-carboxylic acid",,,(N->O)Leu,(2S)-2-hydroxy-4-methylpentanoic acid,,,Mono18,"(4S,5R)-2-[(1S,2S)-1-amino-2-methylbutyl]-4,5-dihydro-1,3-oxazole-4-carboxylic acid",dR,(2R)-2-amino-5-(diaminomethylideneamino)pentanoic acid
+meK,(2S)-6-amino-2-(methylamino)hexanoic acid,,,meM,(2S)-2-(methylamino)-4-methylsulfanylbutanoic acid,,,Mono75,(2S)-2-(3-aminopropylamino)-3-phenylpropanoic acid,dSer(Me),(2R)-2-amino-3-methoxypropanoic acid
+Me_Lys(Me),"(2S)-2,6-bis(methylamino)hexanoic acid",,,Nle,(2S)-2-aminohexanoic acid,,,Pro(O->S),N.D,dT,"(2R,3S)-2-amino-3-hydroxybutanoic acid"
+P,(2S)-pyrrolidine-2-carboxylic acid,,,Me_Nva,(2S)-2-(methylamino)pentanoic acid,,,Me_Nva(F2),"(2S)-5,5-difluoro-2-(methylamino)pentanoic acid",,
+Pip,(2S)-piperidine-2-carboxylic acid,,,Ser(Bn),(2S)-2-amino-3-phenylmethoxypropanoic acid,,,,,,
+Me_Ser(Pr),(2S)-2-(methylamino)-3-propoxypropanoic acid,,,Ser(isoamyl),(2S)-2-amino-3-(3-methylbutoxy)propanoic acid,,,,,,
+Sta,"(3S,4S)-4-amino-3-hydroxy-6-methylheptanoic acid",,,Me_Bmt(E),"(E,2S,3R,4R)-3-hydroxy-4-methyl-2-(methylamino)oct-6-enoic acid",,,,,,
+"Sta(3R,4R)","(3R,4R)-4-amino-3-hydroxy-6-methylheptanoic acid",,,Tle,"(2S)-2-amino-3,3-dimethylbutanoic acid",,,,,,
+(N->O)Val,(2S)-2-hydroxy-3-methylbutanoic acid,,,meY,(2S)-3-(4-hydroxyphenyl)-2-(methylamino)propanoic acid,,,,,,
+Mono2,"(2S,3S)-3-methylpyrrolidine-2-carboxylic acid",,,Tyr(3-F),(2S)-2-amino-3-(3-fluoro-4-hydroxyphenyl)propanoic acid,,,,,,
+Mono4,(2S)-2-(methylamino)-4-oxo-4-piperidin-1-ylbutanoic acid,,,Mono1,"2-(1,3-benzodioxol-5-ylmethylamino)acetic acid",,,,,,
+Mono6,4-(methylamino)butanoic acid,,,Mono3,(2S)-2-(methylamino)-4-piperidin-1-ylbutanoic acid,,,,,,
+Bal(3-Me),(3S)-3-aminobutanoic acid,,,Mono18,"(4S,5R)-2-[(1S,2S)-1-amino-2-methylbutyl]-4,5-dihydro-1,3-oxazole-4-carboxylic acid",,,,,,
+Mono13,"(2S)-1-[(2S,3S)-3-amino-1-(tert-butylamino)-1-oxobutan-2-yl]pyrrolidine-2-carboxylic acid",,,Mono25,"[(2S,4S)-4-chloropiperidin-2-yl]methanol",,,,,,
+Mono26,"(3S,4R,5S)-4-amino-3-hydroxy-5-methylheptanoic acid",,,Mono34,2-(3-propan-2-yloxypropylamino)acetic acid,,,,,,
+Mono38,2-(oxan-4-ylmethylamino)acetic acid,,,Mono58,"2-[2-(4,4-difluoropiperidin-1-yl)ethylamino]acetic acid",,,,,,
+Mono40,2-[3-(1-methylpyrazol-4-yl)propylamino]acetic acid,,,Mono59,"(2S,4R)-4-(4,4-difluoropiperidin-1-yl)pyrrolidine-2-carboxylic acid",,,,,,
+Mono41,2-[3-(2-oxopyrrolidin-1-yl)propylamino]acetic acid,,,Mono60,"(2S,4S)-4-(4,4-difluoropiperidin-1-yl)pyrrolidine-2-carboxylic acid",,,,,,
+Mono47,(2S)-1-[(1S)-1-[(2S)-aziridin-2-yl]-2-(tert-butylamino)-2-oxoethyl]pyrrolidine-2-carboxylic acid,,,Mono65,"(2S)-2-amino-7,7,7-trifluoro-6-hydroxyheptanoic acid",,,,,,
+Mono83,2-(6-aminohexylamino)acetic acid,,,Mono75,(2S)-2-(3-aminopropylamino)-3-phenylpropanoic acid,,,,,,
+ac-,acetic acid,,,Mono84,(2S)-2-(6-aminohexylamino)propanoic acid,,,,,,
+Bal(d3-Me),(3R)-3-aminobutanoic acid,,,Mono85,(2R)-2-(6-aminohexylamino)propanoic acid,,,,,,
+Me_Bal(d3-Me),(3R)-3-(methylamino)butanoic acid,,,Mono92,(2R)-5-amino-2-methylpentanoic acid,,,,,,
+Mono113,(2R)-3-amino-2-methylpropanoic acid,,,Mono93,(2S)-5-amino-2-methylpentanoic acid,,,,,,
+-nme2,N-methylmethanamine,,,Mono94,(3R)-5-amino-3-methylpentanoic acid,,,,,,
+Mono115,2-[(2R)-3-ethoxy-2-(methylamino)-3-oxopropyl]sulfanylaceticacid,,,Mono95,(3S)-5-amino-3-methylpentanoic acid,,,,,,
+Me_Hse(Me),(2S)-4-methoxy-2-(methylamino)butanoic acid,,,Mono96,(4R)-5-amino-4-methylpentanoic acid,,,,,,
+Me_Gly(cPr),(2S)-2-cyclopropyl-2-(methylamino)acetic acid,,,Mono97,(4S)-5-amino-4-methylpentanoic acid,,,,,,
+-aze,azetidine,,,Mono98,(5R)-5-aminohexanoic acid,,,,,,
+,,,,Mono99,(5S)-5-aminohexanoic acid,,,,,,
+,,,,Pro(O->S),N.D,,,,,,
+,,,,Mono114,4-(ethylamino)butanoic acid,,,,,,
+,,,,Me_Gly(cBu),(2S)-2-cyclobutyl-2-(methylamino)acetic acid,,,,,,
+,,,,Gly(cPent),(2S)-2-amino-2-cyclopentylacetic acid,,,,,,
+,,,,Ala(cBu),(2S)-2-amino-3-cyclobutylpropanoic acid,,,,,,
